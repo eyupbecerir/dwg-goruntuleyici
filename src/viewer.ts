@@ -2,7 +2,8 @@ import {
   AcApDocManager,
   AcApI18n,
   AcApSettingManager,
-  AcEdOpenMode
+  AcEdOpenMode,
+  AcEdViewMode
 } from '@mlightcad/cad-simple-viewer'
 import {
   AcDbDatabaseConverterManager,
@@ -153,10 +154,32 @@ export class Gorunum {
     if (ok) {
       this.acik = true
       this.gorunum.entitySelectionEnabled = false
+      this.fareKaydirmaKur()
       this.temaUygula(this.tema)
       this.sigdir()
     }
     return ok
+  }
+
+  /**
+   * Bilgisayarda fareyle kaydırma: kütüphane varsayılanı "seçim" modudur ve
+   * kaydırmayı yalnız orta tuşa verir. Programda nesne seçimi olmadığından
+   * "kaydırma" moduna geçilir (sol tuşla sürükle), AutoCAD alışkanlığı için orta
+   * tuş da kaydırmaya devam eder. Görünüm her dosya açılışında yeniden kurulduğu
+   * için her açılışta çağrılır. Dokunmatik hareketleri etkilemez.
+   */
+  private fareKaydirmaKur(): void {
+    try {
+      this.gorunum.mode = AcEdViewMode.PAN
+      const kontrol = this.gorunum.activeLayoutView?._cameraControls
+      if (kontrol) {
+        const KAYDIR = 2 // THREE.MOUSE.PAN
+        kontrol.mouseButtons = { LEFT: KAYDIR, MIDDLE: KAYDIR }
+        kontrol.update?.()
+      }
+    } catch {
+      // yoksay: orta tuşla kaydırma yine çalışır
+    }
   }
 
   /** Bozuk dosyalarda ayrıştırıcı hata vermeden boş veritabanı döndürebilir; boş çizimi başarısız sayarız. */
