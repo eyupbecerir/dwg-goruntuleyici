@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#111418" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" href="./icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <title>DWG Görüntüleyici</title>
+  <script type="module" crossorigin src="./assets/index-jZi7W5Dt.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-D40vwHxx.css">
+<link rel="manifest" href="./manifest.webmanifest"></head>
+<body>
+  <div id="app">
+    <header id="ust-cubuk">
+      <button id="btn-ac" class="btn birincil" type="button" aria-label="Dosya aç">
+        <span class="ikon">&#128193;</span><span class="etiket">Dosya aç</span>
+      </button>
+      <button id="btn-son" class="btn" type="button" aria-label="Son açılanlar">
+        <span class="ikon">&#128337;</span><span class="etiket">Son açılanlar</span>
+      </button>
+      <div id="dosya-adi" title=""></div>
+      <div class="arac-grup" id="arac-grup">
+        <button id="btn-sigdir" class="btn" type="button" disabled aria-label="Sığdır">
+          <span class="ikon">&#9974;</span><span class="etiket">Sığdır</span>
+        </button>
+        <button id="btn-yakin" class="btn kare" type="button" disabled aria-label="Yakınlaştır">+</button>
+        <button id="btn-uzak" class="btn kare" type="button" disabled aria-label="Uzaklaştır">&minus;</button>
+        <button id="btn-olc" class="btn" type="button" disabled aria-pressed="false" aria-label="Ölç">
+          <span class="ikon">&#128207;</span><span class="etiket">Ölç</span>
+        </button>
+        <button id="btn-arkaplan" class="btn" type="button" aria-label="Arka plan">
+          <span class="ikon">&#9680;</span><span class="etiket" id="arkaplan-etiket">Koyu</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="sahne">
+      <div id="cad-container"></div>
+      <svg id="olcum-katman" aria-hidden="true"></svg>
+      <div id="olcum-panel" hidden>
+        <div id="olcum-ipucu"></div>
+        <div id="olcum-sonuc" hidden></div>
+      </div>
+
+      <section id="baslangic" class="ekran">
+        <div class="baslangic-ic">
+          <h1>DWG Görüntüleyici</h1>
+          <p class="alt">Çizim dosyası tabletinizden açılır, hiçbir yere gönderilmez.</p>
+          <button id="btn-ac-buyuk" class="buyuk-buton" type="button">Dosya aç</button>
+          <p class="alt kucuk">.dwg ve .dxf dosyaları</p>
+          <div id="son-bolum" hidden>
+            <h2>Son açılanlar</h2>
+            <ul id="son-liste"></ul>
+          </div>
+          <button id="btn-kapat-baslangic" class="btn" type="button" hidden>Çizime dön</button>
+        </div>
+      </section>
+
+      <div id="yukleniyor" class="ekran kaplama" hidden>
+        <div class="donen"></div>
+        <div class="yazi">Çizim açılıyor…</div>
+      </div>
+
+      <div id="hata" class="ekran kaplama" hidden>
+        <div class="hata-kutu">
+          <p id="hata-metin"></p>
+          <button id="btn-hata-tamam" class="buyuk-buton kucuk-buton" type="button">Tamam</button>
+        </div>
+      </div>
+    </main>
+
+    <input id="dosya-girdi" type="file" accept=".dwg,.dxf,application/acad,application/x-acad,application/dxf,image/vnd.dwg,image/vnd.dxf,application/octet-stream,*/*" hidden />
+  </div>
+</body>
+</html>
