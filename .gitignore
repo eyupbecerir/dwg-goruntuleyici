@@ -1,0 +1,6 @@
+﻿node_modules/
+dist/
+ornekler/
+test/ekran/
+test/son-sonuc.txt
+*.log

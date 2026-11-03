@@ -1,0 +1,116 @@
+:root {
+  --bg: #111418;
+  --panel: #1b2027;
+  --panel-2: #262d37;
+  --metin: #e8edf3;
+  --metin-soft: #9aa6b4;
+  --vurgu: #4da3ff;
+  --vurgu-koyu: #1f6fc0;
+  --tehlike: #ff6b6b;
+  --sinir: #2f3844;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; height: 100%; background: var(--bg); color: var(--metin);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif;
+  overscroll-behavior: none; overflow: hidden; touch-action: none;
+  -webkit-user-select: none; user-select: none;
+}
+#app { display: flex; flex-direction: column; height: 100dvh; width: 100vw; }
+
+#ust-cubuk {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; padding-top: max(6px, env(safe-area-inset-top));
+  background: var(--panel); border-bottom: 1px solid var(--sinir); min-height: 60px;
+}
+.btn {
+  min-height: 48px; min-width: 48px; padding: 0 14px; border-radius: 10px;
+  border: 1px solid var(--sinir); background: var(--panel-2); color: var(--metin);
+  font-size: 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer; touch-action: manipulation; white-space: nowrap;
+}
+.btn:active { background: #323b48; }
+.btn:disabled { opacity: 0.4; }
+.btn.birincil { background: var(--vurgu-koyu); border-color: var(--vurgu); }
+.btn.kare { width: 48px; padding: 0; font-size: 26px; line-height: 1; }
+.btn.aktif { background: var(--vurgu); color: #05121f; border-color: var(--vurgu); }
+.ikon { font-size: 18px; line-height: 1; }
+#dosya-adi {
+  flex: 1 1 auto; min-width: 0; padding: 0 6px; font-size: 16px; color: var(--metin-soft);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.arac-grup { display: flex; gap: 8px; flex: 0 0 auto; }
+
+#sahne { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; background: #000; }
+#cad-container { position: absolute; inset: 0; touch-action: none; }
+#cad-container canvas { touch-action: none; display: block; }
+#olcum-katman { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+
+#olcum-panel {
+  position: absolute; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+  background: rgba(20, 25, 31, 0.94); border: 1px solid var(--vurgu); border-radius: 12px;
+  padding: 10px 16px; font-size: 17px; text-align: center; max-width: calc(100% - 24px);
+  pointer-events: none; color: #fff; z-index: 10;
+}
+#olcum-sonuc { font-variant-numeric: tabular-nums; margin-top: 4px; font-weight: 600; }
+#olcum-sonuc .alt-deger { font-weight: 400; color: #c5d3e2; margin-left: 12px; }
+
+.ekran { position: absolute; inset: 0; }
+#baslangic { background: var(--bg); overflow-y: auto; touch-action: pan-y; z-index: 15; }
+.baslangic-ic { max-width: 640px; margin: 0 auto; padding: 36px 20px 40px; text-align: center; }
+h1 { font-size: 30px; margin: 0 0 6px; }
+h2 { font-size: 18px; text-align: left; margin: 30px 0 10px; color: var(--metin-soft); font-weight: 600; }
+.alt { color: var(--metin-soft); margin: 0 0 22px; }
+.alt.kucuk { font-size: 14px; margin: 12px 0 0; }
+.buyuk-buton {
+  min-height: 72px; min-width: 280px; padding: 0 36px; font-size: 24px; font-weight: 600;
+  border-radius: 16px; border: 0; background: var(--vurgu); color: #05121f; cursor: pointer;
+  touch-action: manipulation;
+}
+.buyuk-buton:active { background: #7bbcff; }
+.kucuk-buton { min-height: 52px; min-width: 140px; font-size: 18px; }
+#son-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+#son-liste li { display: flex; align-items: stretch; gap: 8px; }
+.son-oge {
+  flex: 1 1 auto; min-height: 60px; text-align: left; padding: 8px 14px; border-radius: 12px;
+  background: var(--panel-2); border: 1px solid var(--sinir); color: var(--metin); cursor: pointer;
+  display: flex; flex-direction: column; justify-content: center; min-width: 0; font-size: 17px;
+  touch-action: manipulation;
+}
+.son-oge:active { background: #323b48; }
+.son-oge .ad { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.son-oge .bilgi { font-size: 13px; color: var(--metin-soft); margin-top: 2px; }
+.son-sil {
+  flex: 0 0 auto; width: 52px; min-height: 60px; border-radius: 12px; border: 1px solid var(--sinir);
+  background: var(--panel-2); color: var(--tehlike); font-size: 26px; cursor: pointer; touch-action: manipulation;
+}
+.son-sil:active { background: #3a2a2d; }
+#btn-kapat-baslangic { margin-top: 26px; }
+
+.kaplama {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  background: rgba(10, 13, 17, 0.82); z-index: 20;
+}
+.kaplama[hidden], #baslangic[hidden], #olcum-panel[hidden], #son-bolum[hidden], #olcum-sonuc[hidden],
+#btn-kapat-baslangic[hidden] { display: none; }
+.yazi { font-size: 20px; }
+.donen {
+  width: 52px; height: 52px; border-radius: 50%; border: 5px solid var(--sinir); border-top-color: var(--vurgu);
+  animation: don 0.9s linear infinite;
+}
+@keyframes don { to { transform: rotate(360deg); } }
+.hata-kutu {
+  max-width: 520px; margin: 0 20px; padding: 24px; background: var(--panel); border: 1px solid var(--tehlike);
+  border-radius: 14px; text-align: center; font-size: 18px; line-height: 1.5;
+}
+.hata-kutu p { margin: 0 0 18px; }
+
+@media (max-width: 900px) {
+  .btn .etiket { display: none; }
+  .btn { padding: 0 12px; }
+}
+@media (max-width: 560px) {
+  #dosya-adi { display: none; }
+  #ust-cubuk { gap: 6px; padding: 6px; }
+  .arac-grup { gap: 6px; margin-left: auto; }
+}
