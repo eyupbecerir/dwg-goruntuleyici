@@ -54,7 +54,7 @@ ctx.on('request', (r) => {
   if (!(u.startsWith(`http://localhost:${PORT}/`) || u.startsWith('blob:') || u.startsWith('data:'))) disIstekler.push(u)
 })
 const sayfa = await ctx.newPage()
-sayfa.on('pageerror', (e) => sayfaHatalari.push(e.message))
+sayfa.on('pageerror', (e) => { console.log('   [pageerror]', e.message); sayfaHatalari.push(e.message) })
 sayfa.on('console', (m) => {
   if (m.type() === 'error') console.log('   [konsol hata]', m.text().slice(0, 200))
 })
@@ -130,6 +130,15 @@ function numara(metin) {
 }
 
 let sn = 0
+// Düğmeyi hedef duruma getirir (dokunmadan sonra ilk tıklama bazen yutuluyor, bu yüzden durum doğrulanır)
+async function olcDurumu(hedef) {
+  for (let i = 0; i < 4; i++) {
+    if ((await sayfa.getAttribute('#btn-olc', 'aria-pressed')) === hedef) return
+    await sayfa.$eval('#btn-olc', (b) => b.click())
+    await sayfa.waitForTimeout(300)
+  }
+  throw new Error('Ölç düğmesi ' + hedef + ' durumuna getirilemedi')
+}
 async function foto(ad) {
   sn++
   const yol = join(EKRAN, `${String(sn).padStart(2, '0')}-${ad}.png`)
@@ -228,6 +237,10 @@ if (m) {
   kontrol('ΔX ≈ 200, ΔY ≈ 0', Math.abs(dx - 200) < 1.5 && dy < 1.5)
 } else kontrol('sonuç biçimi', false, metin)
 await foto('olcum-yatay-200')
+// Noktalar artık tutamak: eski noktaların üstüne dokunmak sürükleme sayılır, bu yüzden ölçüm modunu sıfırlayıp yeniden başlatırız
+// (dokunmadan hemen sonra gelen fare tıklamasını Chromium yutabiliyor; düğme doğrudan tetiklenir)
+await olcDurumu('false')
+await olcDurumu('true')
 await olcu({ x: 0, y: 0 }, { x: 200, y: 100 })
 const metin2 = (await sayfa.textContent('#olcum-sonuc')).trim()
 const m2 = metin2.match(/Mesafe:\s*([\d.,]+).*ΔX:\s*([\d.,]+).*ΔY:\s*([\d.,]+)/)
@@ -235,7 +248,7 @@ const bek = Math.hypot(200, 100)
 kontrol('yeni ölçüm: mesafe ≈ 223,61', !!m2 && Math.abs(numara(m2[1]) - bek) < 2, metin2)
 await foto('olcum-capraz')
 // ölçüm modunda iki parmakla yakınlaştırma/kaydırma bozulmuyor mu: tek dokunma yeni nokta başlatır, tekrar kontrol
-await sayfa.click('#btn-olc')
+await olcDurumu('false')
 kontrol('Ölç modu kapandı', (await sayfa.getAttribute('#btn-olc', 'aria-pressed')) === 'false' && (await sayfa.locator('#olcum-panel').isHidden()))
 
 // ================= 4) Araç çubuğu: +, -, Sığdır
@@ -311,6 +324,217 @@ kontrol(
 await foto('hata')
 await sayfa.click('#btn-hata-tamam')
 
+// ================= 3b) Yakalama, tutamaklar, büyüteç (test/veri/yakalama.dxf)
+console.log('\n== 3b) Yakalama / tutamak / buyutec')
+const VERI = join(kok, 'test', 'veri')
+async function adliFoto(ad) {
+  const yol = join(EKRAN, ad)
+  await sayfa.screenshot({ path: yol })
+  console.log('   ekran:', yol)
+}
+const ekr = (x, y) =>
+  sayfa.evaluate(
+    ([x, y]) => {
+      const g = window.__dwg.gorunum
+      const r = g.tuval.getBoundingClientRect()
+      const s = g.dunyaEkran({ x, y })
+      return { x: s.x + r.left, y: s.y + r.top }
+    },
+    [x, y]
+  )
+const nokta = () => sayfa.evaluate(() => window.__dwg.olcum.noktalar.map((n) => ({ x: n.p.x, y: n.p.y, tur: n.tur || null })))
+const etiketler = () => sayfa.$$eval('#olcum-katman .yakala-etiket', (e) => e.map((x) => x.textContent))
+const tam = (n, x, y, tol = 1e-6) => !!n && Math.abs(n.x - x) < tol && Math.abs(n.y - y) < tol
+const yenidenOlc = async () => {
+  await olcDurumu('false')
+  await olcDurumu('true')
+}
+const cdp = await ctx.newCDPSession(sayfa)
+const dokun = (tip, p) => cdp.send('Input.dispatchTouchEvent', { type: tip, touchPoints: p ? [{ x: p.x, y: p.y, id: 1 }] : [] })
+async function suruklemeBasla(bas, hedefler) {
+  await dokun('touchStart', bas)
+  let onceki = bas
+  for (const h of hedefler) {
+    for (let i = 1; i <= 6; i++) {
+      await dokun('touchMove', { x: onceki.x + ((h.x - onceki.x) * i) / 6, y: onceki.y + ((h.y - onceki.y) * i) / 6 })
+      await sayfa.waitForTimeout(30)
+    }
+    onceki = h
+  }
+  await sayfa.waitForTimeout(250)
+}
+
+await acDosyadan(join(VERI, 'yakalama.dxf'))
+await cizimGorunene()
+await sayfa.click('#btn-olc')
+kontrol('yakalama düğmesi varsayılan "Yakalama: Açık"', (await sayfa.textContent('#btn-yakalama')).trim() === 'Yakalama: Açık')
+
+// köşe: 10 px yandan dokunma tam (0,0)'a yapışır
+let p0 = await ekr(0, 0)
+await sayfa.touchscreen.tap(p0.x + 7, p0.y + 7)
+await sayfa.waitForTimeout(200)
+let nk = await nokta()
+kontrol('köşeye ~10px yandan dokunma: A tam (0,0), tür köşe', tam(nk[0], 0, 0) && nk[0].tur === 'kose', JSON.stringify(nk[0]))
+let pc = await ekr(200, 100)
+await sayfa.touchscreen.tap(pc.x - 6, pc.y + 8)
+await sayfa.waitForTimeout(300)
+nk = await nokta()
+let mt = (await sayfa.textContent('#olcum-sonuc')).trim()
+kontrol('(200,100) köşesi: mesafe 223,61', /Mesafe:\s*223,61/.test(mt) && tam(nk[1], 200, 100), mt)
+kontrol('köşe işareti ve "Köşe" etiketi görünüyor', (await etiketler()).filter((x) => x === 'Köşe').length === 2, (await etiketler()).join(','))
+await adliFoto('snap-kose.png')
+const tutBoyut = await sayfa.evaluate(() => {
+  const r = document.querySelector('.tutamak[data-nokta="B"]').getBoundingClientRect()
+  return [r.width, r.height]
+})
+kontrol('tutamak dokunma alanı en az 44px', tutBoyut[0] >= 44 && tutBoyut[1] >= 44, tutBoyut.join('x'))
+
+// B'yi sürükle: (200,0) köşesine, canlı yakalama + büyüteç
+const bTut = await ekr(200, 100)
+const hedefB = await ekr(200, 0)
+const gorunumOnce = await ekr(0, 0)
+await suruklemeBasla(bTut, [{ x: hedefB.x - 8, y: hedefB.y + 9 }])
+const buyutecGorunur = await sayfa.locator('#olcum-buyutec').isVisible()
+kontrol('sürüklerken büyüteç görünüyor', buyutecGorunur)
+const kutuB = await sayfa.locator('#olcum-buyutec').boundingBox()
+kontrol('büyüteç parmağın üstünde (~120px)', !!kutuB && kutuB.y + kutuB.height <= hedefB.y + 9 && Math.abs(kutuB.width - 126) < 10, JSON.stringify(kutuB))
+const lupPiksel = await sayfa.evaluate(() => {
+  const c = document.querySelector('#olcum-buyutec canvas')
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+  let beyaz = 0
+  let yesil = 0
+  for (let i = 0; i < d.length; i += 4) {
+    if (Math.min(d[i], d[i + 1], d[i + 2]) > 90 && Math.abs(d[i] - d[i + 2]) < 50) beyaz++
+    if (d[i + 1] > 180 && d[i] < 80 && d[i + 2] < 160) yesil++
+  }
+  return { beyaz, yesil, w: c.width }
+})
+kontrol('büyüteçte çizim çizgileri görünüyor (siyah/boş değil)', lupPiksel.beyaz > 200, JSON.stringify(lupPiksel))
+kontrol('büyüteçte yakalama işareti görünüyor', lupPiksel.yesil > 20, JSON.stringify(lupPiksel))
+mt = (await sayfa.textContent('#olcum-sonuc')).trim()
+kontrol('sürüklerken mesafe canlı güncelleniyor (200,00)', /Mesafe:\s*200,00/.test(mt), mt)
+await adliFoto('surukle-buyutec.png')
+await dokun('touchEnd')
+await sayfa.waitForTimeout(300)
+nk = await nokta()
+kontrol('bırakınca B tam (200,0), tür köşe', tam(nk[1], 200, 0) && nk[1].tur === 'kose', JSON.stringify(nk[1]))
+mt = (await sayfa.textContent('#olcum-sonuc')).trim()
+kontrol('bırakınca mesafe 200,00, ΔY 0,00', /Mesafe:\s*200,00.*ΔY:\s*0,00/.test(mt), mt)
+kontrol('bırakınca büyüteç kapandı', await sayfa.locator('#olcum-buyutec').isHidden())
+const gorunumSonra = await ekr(0, 0)
+kontrol('tutamak sürüklemek görünümü kaydırmadı', Math.abs(gorunumSonra.x - gorunumOnce.x) < 0.5 && Math.abs(gorunumSonra.y - gorunumOnce.y) < 0.5)
+kontrol('A noktası sürüklemeden etkilenmedi', tam((await nokta())[0], 0, 0))
+await adliFoto('surukle-birakildi.png')
+
+// A tutamağını da sürükle: (0,100) köşesine
+const aTut = await ekr(0, 0)
+const hedefA = await ekr(0, 100)
+await suruklemeBasla(aTut, [{ x: hedefA.x + 9, y: hedefA.y - 8 }])
+await dokun('touchEnd')
+await sayfa.waitForTimeout(300)
+nk = await nokta()
+kontrol('A tutamağı sürüklenebiliyor: A tam (0,100)', tam(nk[0], 0, 100) && nk[0].tur === 'kose', JSON.stringify(nk[0]))
+
+// boş alana dokunma: iki nokta varken yeni ölçüm, dokunma yeni A olur
+const bos = await ekr(250, 10)
+await sayfa.touchscreen.tap(bos.x, bos.y + 120)
+await sayfa.waitForTimeout(300)
+nk = await nokta()
+kontrol('boş alana dokunma yeni ölçüm başlatır (tek nokta)', nk.length === 1 && nk[0].tur === null, nk.length + ' nokta')
+
+// tek parmakla kaydırma ölçüm modunda çalışıyor ve nokta eklemiyor
+const pan0 = await ekr(0, 0)
+await dokun('touchStart', { x: 400, y: 640 })
+for (let i = 1; i <= 8; i++) {
+  await dokun('touchMove', { x: 400 + i * 12, y: 640 - i * 6 })
+  await sayfa.waitForTimeout(30)
+}
+await dokun('touchEnd')
+await sayfa.waitForTimeout(300)
+const pan1 = await ekr(0, 0)
+nk = await nokta()
+kontrol('ölçüm modunda tek parmak kaydırma çalışıyor', Math.hypot(pan1.x - pan0.x, pan1.y - pan0.y) > 40, `${pan0.x.toFixed(0)},${pan0.y.toFixed(0)} -> ${pan1.x.toFixed(0)},${pan1.y.toFixed(0)}`)
+kontrol('kaydırma yeni nokta eklemedi', nk.length === 1)
+await sayfa.click('#btn-sigdir')
+await sayfa.waitForTimeout(800)
+
+// orta nokta: alt kenarın ortası (100,0)
+await yenidenOlc()
+const pm = await ekr(100, 0)
+await sayfa.touchscreen.tap(pm.x + 6, pm.y - 9)
+await sayfa.waitForTimeout(250)
+nk = await nokta()
+kontrol('orta nokta: (100,0), tür orta', tam(nk[0], 100, 0) && nk[0].tur === 'orta', JSON.stringify(nk[0]))
+kontrol('"Orta" etiketi', (await etiketler()).includes('Orta'))
+await adliFoto('snap-orta.png')
+
+// kesişim: köşegenlerin kesişimi (100,50)
+await yenidenOlc()
+const pk = await ekr(100, 50)
+await sayfa.touchscreen.tap(pk.x + 8, pk.y + 7)
+await sayfa.waitForTimeout(250)
+nk = await nokta()
+kontrol('kesişim: (100,50), tür kesişim', tam(nk[0], 100, 50, 1e-3) && nk[0].tur === 'kesisim', JSON.stringify(nk[0]) + ' dokunus=' + (await sayfa.evaluate(() => window.__dwg.olcum.aktifDokunus.size)))
+kontrol('"Kesişim" etiketi', (await etiketler()).includes('Kesişim'))
+await adliFoto('snap-kesisim.png')
+
+// çeyrek: dairenin sağ çeyreği (330,50)
+await yenidenOlc()
+const pq = await ekr(330, 50)
+await sayfa.touchscreen.tap(pq.x - 7, pq.y + 8)
+await sayfa.waitForTimeout(250)
+nk = await nokta()
+kontrol('çeyrek: (330,50), tür çeyrek', tam(nk[0], 330, 50, 1e-3) && nk[0].tur === 'ceyrek', JSON.stringify(nk[0]))
+kontrol('"Çeyrek" etiketi', (await etiketler()).includes('Çeyrek'))
+
+// merkez: daire merkezi, çemberin üzerinden geçince "elde edilir" (kütüphane davranışı)
+await yenidenOlc()
+const pe1 = await ekr(300, -40)
+await sayfa.touchscreen.tap(pe1.x, pe1.y)
+await sayfa.waitForTimeout(150)
+const pe2 = await ekr(300, 150)
+await sayfa.touchscreen.tap(pe2.x, pe2.y)
+await sayfa.waitForTimeout(250)
+const bB = await ekr(300, 150)
+const rim = await ekr(300 + 30, 50)
+const mer = await ekr(300, 50)
+await suruklemeBasla(bB, [{ x: rim.x, y: rim.y }, { x: mer.x + 8, y: mer.y + 6 }])
+await adliFoto('snap-merkez.png')
+await dokun('touchEnd')
+await sayfa.waitForTimeout(300)
+nk = await nokta()
+kontrol('merkez: daire merkezi (300,50), tür merkez', tam(nk[1], 300, 50, 1e-3) && nk[1].tur === 'merkez', JSON.stringify(nk[1]))
+kontrol('"Merkez" etiketi', (await etiketler()).includes('Merkez'))
+
+// yakalama kapalı
+await yenidenOlc()
+await sayfa.$eval('#btn-yakalama', (b) => b.click())
+kontrol('düğme "Yakalama: Kapalı" oldu', (await sayfa.textContent('#btn-yakalama')).trim() === 'Yakalama: Kapalı')
+kontrol('tercih localStorage içinde saklandı', (await sayfa.evaluate(() => localStorage.getItem('yakalama'))) === 'kapali')
+p0 = await ekr(0, 0)
+await sayfa.touchscreen.tap(p0.x + 7, p0.y + 7)
+await sayfa.waitForTimeout(250)
+nk = await nokta()
+const sapma = Math.hypot(nk[0].x, nk[0].y)
+kontrol('yakalama kapalı: köşenin 10px yanı tam değil, işaret yok', sapma > 0.5 && nk[0].tur === null && (await etiketler()).length === 0, `sapma=${sapma.toFixed(2)} birim`)
+await adliFoto('yakalama-kapali.png')
+await sayfa.reload()
+await sayfa.waitForSelector('#btn-ac-buyuk')
+await acDosyadan(join(VERI, 'yakalama.dxf'))
+await cizimGorunene()
+await sayfa.click('#btn-olc')
+kontrol('kapalı tercih yenilemeden sonra korunuyor', (await sayfa.textContent('#btn-yakalama')).trim() === 'Yakalama: Kapalı')
+await sayfa.click('#btn-yakalama')
+kontrol('tekrar "Yakalama: Açık"', (await sayfa.textContent('#btn-yakalama')).trim() === 'Yakalama: Açık')
+await sayfa.click('#btn-olc')
+
+// yazı regresyonu (görsel incelenecek)
+await acDosyadan(join(VERI, 'yazi.dxf'))
+const yz = await cizimGorunene()
+kontrol('yazi.dxf açıldı ve çizim boş değil', yz.parlak + yz.renkli > 150, `parlak=${yz.parlak} renkli=${yz.renkli}`)
+await sayfa.waitForTimeout(800)
+await adliFoto('yazi-regresyon.png')
+
 // ================= 7) OFFLINE
 console.log('\n== 7) OFFLINE (ag kapali)')
 await ctx.setOffline(true)
@@ -358,9 +582,19 @@ await sayfa.waitForTimeout(400)
 const mo = (await sayfa.locator('#olcum-sonuc').isVisible()) ? (await sayfa.textContent('#olcum-sonuc')).trim() : ''
 kontrol('offline: ölçüm sonucu görünüyor', /Mesafe/.test(mo), mo)
 await foto('offline-olcum')
+// çevrimdışı yakalama
+await acDosyadan(join(VERI, 'yakalama.dxf'))
+await cizimGorunene()
+{
+  const q = await ekr(200, 100)
+  await sayfa.touchscreen.tap(q.x + 7, q.y - 8)
+  await sayfa.waitForTimeout(300)
+  const n0 = (await nokta())[0]
+  kontrol('offline: köşe yakalama çalışıyor (200,100)', tam(n0, 200, 100) && n0.tur === 'kose', JSON.stringify(n0))
+}
 
 // dikey yönelim
-await sayfa.click('#btn-olc')
+await olcDurumu('false')
 await sayfa.setViewportSize({ width: 800, height: 1280 })
 await sayfa.waitForTimeout(1200)
 await sayfa.click('#btn-sigdir')

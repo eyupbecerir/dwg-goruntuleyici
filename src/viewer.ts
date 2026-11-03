@@ -4,8 +4,22 @@ import {
   AcApSettingManager,
   AcEdOpenMode
 } from '@mlightcad/cad-simple-viewer'
-import { AcDbDatabaseConverterManager, AcDbFileType, AcGeBox2d } from '@mlightcad/data-model'
+import {
+  AcDbDatabaseConverterManager,
+  AcDbFileType,
+  AcDbOsnapMode,
+  AcGeBox2d,
+  acdbOsnapModesToMask
+} from '@mlightcad/data-model'
 import { AcDbLibreDwgConverter } from '@mlightcad/libredwg-converter'
+import { FontManager } from '@mlightcad/mtext-renderer'
+
+/**
+ * Çizimdeki yazı tipi bulunamazsa kullanılacak yedekler. Kütüphanenin varsayılanı
+ * Çince yazı tipleri (simsun, hztxt) — pakette yoklar, yazılar "?" çıkıyordu.
+ * Arial Latin + Türkçe harfleri kapsar; SHX yazılar için simplex/txt yedekte.
+ */
+const YEDEK_YAZI_TIPLERI = ['arial', 'simplex', 'txt']
 
 export type Tema = 'koyu' | 'acik'
 
@@ -14,6 +28,29 @@ const RENK: Record<Tema, number> = { koyu: 0x000000, acik: 0xffffff }
 export interface Nokta {
   x: number
   y: number
+}
+
+/** Ölçüm için açık nesne yakalama kipleri (En yakın nokta bilerek yok) */
+const YAKALAMA_KIPLERI = [
+  AcDbOsnapMode.EndPoint,
+  AcDbOsnapMode.MidPoint,
+  AcDbOsnapMode.Center,
+  AcDbOsnapMode.Intersection,
+  AcDbOsnapMode.Quadrant
+]
+
+export type YakalamaTuru = 'kose' | 'orta' | 'merkez' | 'kesisim' | 'ceyrek'
+
+const KIP_TUR: Partial<Record<AcDbOsnapMode, YakalamaTuru>> = {
+  [AcDbOsnapMode.EndPoint]: 'kose',
+  [AcDbOsnapMode.MidPoint]: 'orta',
+  [AcDbOsnapMode.Center]: 'merkez',
+  [AcDbOsnapMode.Intersection]: 'kesisim',
+  [AcDbOsnapMode.Quadrant]: 'ceyrek'
+}
+
+export interface Yakalanan extends Nokta {
+  tur: YakalamaTuru
 }
 
 /** Kütüphane görünümüne ince sarmalayıcı. Arayüzün geri kalanı kütüphaneye doğrudan dokunmaz. */
@@ -68,7 +105,17 @@ export class Gorunum {
         mtextRender: './workers/mtext-renderer-worker.js'
       }
     } as never)
+    // createInstance varsayılanı ('modern' = Çince) kurduğu için ondan sonra ayarlanır
+    FontManager.instance.setDefaultFonts(YEDEK_YAZI_TIPLERI)
     this.gorunum.entitySelectionEnabled = false
+    try {
+      AcApSettingManager.instance.apply(
+        { osnapModes: acdbOsnapModesToMask(YAKALAMA_KIPLERI) } as never,
+        { persist: false }
+      )
+    } catch {
+      // yakalama kipleri ayarlanamazsa kütüphane varsayılanı kalır
+    }
   }
 
   private get yonetici(): AcApDocManager {
@@ -170,5 +217,79 @@ export class Gorunum {
   dunyaEkran(p: Nokta): Nokta {
     const s = this.gorunum.worldToScreen(p)
     return { x: s.x, y: s.y }
+  }
+
+  /**
+   * Tuval içi (CSS px) noktanın yakınındaki yakalama noktası. Çözücü yoksa ya da hata verirse
+   * undefined döner (ölçüm ham noktayla sürer).
+   */
+  yakala(ekran: Nokta, yaricapPx: number): Yakalanan | undefined {
+    try {
+      const cozucu = this.gorunum.osnapResolver
+      if (!cozucu || typeof cozucu.resolve !== 'function') return undefined
+      const w = this.ekranDunya(ekran)
+      const r = cozucu.resolve({ cursorWcs: { x: w.x, y: w.y }, hitRadiusPx: yaricapPx })
+      if (!r) return undefined
+      const tur = KIP_TUR[r.type as AcDbOsnapMode]
+      if (!tur) return undefined
+      return { x: r.x, y: r.y, tur }
+    } catch {
+      return undefined
+    }
+  }
+
+  /** Daire merkezi için "elde edilen" izleri temizler */
+  yakalamaTemizle(): void {
+    try {
+      this.gorunum.osnapResolver?.clearAcquiredCenters?.()
+    } catch {
+      // yoksay
+    }
+  }
+
+  /**
+   * Çizimin anlık görüntüsü (büyüteç için). WebGL tamponu sunumdan sonra boşaldığı için bir kare
+   * çizdirilir ve kopya, aynı görevin mikro görev kuyruğunda (tampon hâlâ doluyken) alınır.
+   */
+  tuvalGoruntusu(): Promise<HTMLCanvasElement | null> {
+    return new Promise((coz) => {
+      let bitti = false
+      const v = this.gorunum
+      const son = (c: HTMLCanvasElement | null) => {
+        if (bitti) return
+        bitti = true
+        coz(c)
+      }
+      try {
+        const olay = v.events.renderFrame
+        const isle = () => {
+          olay.removeEventListener(isle)
+          queueMicrotask(() => {
+            try {
+              const kaynak = this.tuval
+              const c = document.createElement('canvas')
+              c.width = kaynak.width
+              c.height = kaynak.height
+              c.getContext('2d')!.drawImage(kaynak, 0, 0)
+              son(c)
+            } catch {
+              son(null)
+            }
+          })
+        }
+        olay.addEventListener(isle)
+        v.isDirty = true
+        setTimeout(() => {
+          try {
+            olay.removeEventListener(isle)
+          } catch {
+            // yoksay
+          }
+          son(null)
+        }, 1000)
+      } catch {
+        son(null)
+      }
+    })
   }
 }

@@ -114,3 +114,26 @@ h2 { font-size: 18px; text-align: left; margin: 30px 0 10px; color: var(--metin-
   #ust-cubuk { gap: 6px; padding: 6px; }
   .arac-grup { gap: 6px; margin-left: auto; }
 }
+
+/* Ölçüm: tutamaklar, yakalama düğmesi, büyüteç */
+#btn-yakalama { pointer-events: auto; margin-top: 8px; min-height: 48px; font-size: 16px; }
+.tutamak {
+  position: absolute; left: 0; top: 0; width: 56px; height: 56px; margin: -28px 0 0 -28px;
+  touch-action: none; pointer-events: auto; z-index: 9; cursor: grab;
+}
+.tutamak[hidden], #olcum-buyutec[hidden] { display: none; }
+.tutamak-halka {
+  position: absolute; left: 12px; top: 12px; width: 32px; height: 32px; border-radius: 50%;
+  border: 3px solid #ffd400; background: rgba(255, 212, 0, 0.18); box-shadow: 0 0 0 2px #000, inset 0 0 0 1px #000;
+}
+.tutamak.suruklenen .tutamak-halka { background: rgba(255, 212, 0, 0.4); }
+.tutamak-etiket {
+  position: absolute; left: 42px; top: -2px; color: #ffd400; font-size: 20px; font-weight: 700;
+  -webkit-text-stroke: 3px #000; paint-order: stroke fill; text-shadow: 0 0 3px #000;
+}
+#olcum-buyutec {
+  position: absolute; width: 120px; height: 120px; border-radius: 50%; overflow: hidden; z-index: 12;
+  border: 3px solid #ffd400; box-shadow: 0 0 0 2px #000, 0 4px 14px rgba(0, 0, 0, 0.6); pointer-events: none;
+  background: #000;
+}
+#olcum-buyutec canvas { width: 100%; height: 100%; display: block; }
