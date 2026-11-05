@@ -103,12 +103,15 @@ async function listeyiYenile(): Promise<void> {
   }
 }
 
-function hataGoster(): void {
-  $('hata-metin').textContent = HATA_METNI
+const KAYIT_YOK_METNI =
+  'Bu dosya artık telefonda okunamıyor, listeden kaldırıldı. "Dosya aç" ile yeniden açarsanız tekrar listeye eklenir.'
+
+function hataGoster(metin = HATA_METNI): void {
+  $('hata-metin').textContent = metin
   hataEkrani.hidden = false
 }
 
-async function cizimAc(ad: string, veri: ArrayBuffer, kaydet: Blob | null): Promise<void> {
+async function cizimAc(ad: string, veri: ArrayBuffer, kaydet: ArrayBuffer | null): Promise<void> {
   if (mesgul) return
   mesgul = true
   yukleniyor.hidden = false
@@ -126,7 +129,7 @@ async function cizimAc(ad: string, veri: ArrayBuffer, kaydet: Blob | null): Prom
     $('app').classList.remove('dosya-yok')
     baslangicGoster(false)
     if (kaydet) {
-      await depo.kaydet(ad, kaydet.size, kaydet)
+      await depo.kaydet(ad, kaydet)
       listeyiYenile()
     }
   } catch (e) {
@@ -147,19 +150,23 @@ async function cizimAc(ad: string, veri: ArrayBuffer, kaydet: Blob | null): Prom
 
 async function dosyadanAc(dosya: File): Promise<void> {
   const veri = await dosya.arrayBuffer()
-  await cizimAc(dosya.name, veri, dosya)
+  // Kalıcı kopya: açma sırasında tampon işçiye devredilebilir
+  await cizimAc(dosya.name, veri, veri.slice(0))
 }
 
 async function sondanAc(id: number): Promise<void> {
+  if (mesgul) return
   const k = await depo.getir(id)
   if (!k) {
-    hataGoster()
+    await depo.sil(id)
+    listeyiYenile()
+    hataGoster(KAYIT_YOK_METNI)
     return
   }
-  const veri = await k.veri.arrayBuffer()
-  await cizimAc(k.ad, veri, null)
+  await cizimAc(k.ad, k.veri, null)
   // Listede en üste çıksın
-  await depo.kaydet(k.ad, k.boyut, k.veri)
+  await depo.dokun(id)
+  listeyiYenile()
 }
 
 function baglantilar(): void {

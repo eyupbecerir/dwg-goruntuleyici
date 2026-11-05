@@ -33,6 +33,19 @@ const YAMALAR: Record<string, Yama[]> = {
       yeni: 'calculateBlankWidthForFont(e, n) {\n    n = n * (this.fontManager.getFontScaleFactor(e) || 1);\n    const r = this.fontManager.getCharShape(" ", e, n);'
     }
   ],
+  '@mlightcad/data-model/lib/base/AcDbDxfStringChunks.js': [
+    {
+      // DXF metnindeki `\U+nnnn` kaçışları 4-8 hane açgözlü okunuyordu:
+      // `D\U+00D6\U+015EEME` (DÖŞEME) içinde `015EE` alınıp Ş yerine anlamsız
+      // bir karakter çıkıyor, ardından gelen E yutuluyordu. AutoCAD tam 4 hane
+      // yazar; 8 hane yalnız BMP dışı kod noktaları (0001xxxx-0010xxxx) için.
+      ad: 'DXF \\U+ kaçışı 4 hane',
+      eski: `    return value.replace(/\\\\U\\+([0-9A-Fa-f]{4,8})/gi, function (match, hex) {
+        var cp = Number.parseInt(hex, 16);`,
+      yeni: `    return value.replace(/\\\\U\\+(?:(000[1-9A-Fa-f][0-9A-Fa-f]{4}|0010[0-9A-Fa-f]{4})|([0-9A-Fa-f]{4}))/gi, function (match, uzun, kisa) {
+        var cp = Number.parseInt(uzun || kisa, 16);`
+    }
+  ],
   '@mlightcad/data-model/lib/entity/AcDbMLeader.js': [
     {
       // Çoklu kılavuzun yatay kırılma çizgisi (dogleg) "içerik başlangıç
