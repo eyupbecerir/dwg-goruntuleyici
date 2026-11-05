@@ -57,26 +57,42 @@ function boyutYazi(b: number): string {
   return `${(b / 1024 / 1024).toFixed(1)} MB`
 }
 
+// "Bugün 18:40", "Dün 09:15", aynı yıl "3 Kas 14:20", eski yıl "3 Kas 2025"
+function tarihYazi(t: number): string {
+  const d = new Date(t)
+  const saat = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+  const gun = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const fark = Math.round((gun(new Date()) - gun(d)) / 86400000)
+  if (fark === 0) return `Bugün ${saat}`
+  if (fark === 1) return `Dün ${saat}`
+  if (d.getFullYear() === new Date().getFullYear())
+    return `${d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })} ${saat}`
+  return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+const SIL_IKON =
+  '<svg class="ikon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
+
 async function listeyiYenile(): Promise<void> {
   const kayitlar = await depo.listele()
-  const bolum = $('son-bolum')
   const ul = $('son-liste')
   ul.replaceChildren()
-  bolum.hidden = kayitlar.length === 0
+  $('son-bos').hidden = kayitlar.length > 0
   for (const k of kayitlar) {
     const li = document.createElement('li')
     const ac = document.createElement('button')
     ac.type = 'button'
     ac.className = 'son-oge'
-    ac.innerHTML = '<span class="ad"></span><span class="bilgi"></span>'
+    const dxf = /\.dxf$/i.test(k.ad)
+    ac.innerHTML = `<span class="rozet${dxf ? ' dxf' : ''}">${dxf ? 'DXF' : 'DWG'}</span>` +
+      '<span class="son-metin"><span class="ad"></span><span class="bilgi"></span></span>'
     ;(ac.querySelector('.ad') as HTMLElement).textContent = k.ad
-    ;(ac.querySelector('.bilgi') as HTMLElement).textContent =
-      `${boyutYazi(k.boyut)} · ${new Date(k.tarih).toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' })}`
+    ;(ac.querySelector('.bilgi') as HTMLElement).textContent = `${boyutYazi(k.boyut)} · ${tarihYazi(k.tarih)}`
     ac.addEventListener('click', () => sondanAc(k.id))
     const sil = document.createElement('button')
     sil.type = 'button'
     sil.className = 'son-sil'
-    sil.textContent = '×'
+    sil.innerHTML = SIL_IKON
     sil.setAttribute('aria-label', `${k.ad} kaydını sil`)
     sil.addEventListener('click', async () => {
       await depo.sil(k.id)
@@ -107,6 +123,7 @@ async function cizimAc(ad: string, veri: ArrayBuffer, kaydet: Blob | null): Prom
     $('dosya-adi').title = ad
     document.title = `${ad} · DWG Görüntüleyici`
     araclar.forEach((b) => (b.disabled = false))
+    $('app').classList.remove('dosya-yok')
     baslangicGoster(false)
     if (kaydet) {
       await depo.kaydet(ad, kaydet.size, kaydet)
@@ -117,6 +134,7 @@ async function cizimAc(ad: string, veri: ArrayBuffer, kaydet: Blob | null): Prom
     if (!gorunum.dosyaAcik) {
       $('dosya-adi').textContent = ''
       araclar.forEach((b) => (b.disabled = true))
+      $('app').classList.add('dosya-yok')
       if (olcum.acikMi) olcum.kapat()
     }
     hataGoster()

@@ -119,7 +119,8 @@ async function etiket() {
 }
 
 async function temaSec(hedef) {
-  if ((await etiket()) !== hedef) await sayfa.click('#btn-arkaplan')
+  // Dosya açık değilken üst çubuk gizli; düğmeyi doğrudan tetikle
+  if ((await etiket()) !== hedef) await sayfa.$eval('#btn-arkaplan', (b) => b.click())
   await sayfa.waitForFunction((h) => document.getElementById('arkaplan-etiket').textContent.trim() === h, hedef)
   await sayfa.waitForTimeout(700)
 }
