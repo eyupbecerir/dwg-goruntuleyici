@@ -360,6 +360,15 @@ function baslat(): void {
 // Safari/Chromium cift dokunma yakinlastirmasini ve sayfa kaydirmasini engelle
 document.addEventListener('gesturestart', (e) => e.preventDefault())
 
+// iPhone döndürme/adres çubuğu sonrası belge kaymış kalırsa üst çubuk görünmez: başa al
+function sayfayiSabitle(): void {
+  if (window.scrollX || window.scrollY) window.scrollTo(0, 0)
+}
+window.addEventListener('resize', sayfayiSabitle)
+window.addEventListener('orientationchange', () => setTimeout(sayfayiSabitle, 300))
+window.addEventListener('scroll', sayfayiSabitle)
+window.visualViewport?.addEventListener('resize', sayfayiSabitle)
+
 baslat()
 
 registerSW({ immediate: true })

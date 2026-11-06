@@ -22,7 +22,9 @@ html, body {
   -webkit-user-select: none; user-select: none;
   -webkit-font-smoothing: antialiased;
 }
-#app { display: flex; flex-direction: column; height: 100dvh; width: 100vw; }
+/* Sabit konum: iPhone'da döndürme ya da adres çubuğu değişince belge kayıp üst çubuk
+   ekranın dışına itilemesin (100dvh yerine ekranın dört kenarına bağlı) */
+#app { display: flex; flex-direction: column; position: fixed; inset: 0; }
 
 /* Simgeler: tek çizgi kalınlığı, metin rengini alır */
 svg.ikon {
