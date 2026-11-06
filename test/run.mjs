@@ -120,7 +120,13 @@ async function etiket() {
 
 async function temaSec(hedef) {
   // Dosya açık değilken üst çubuk gizli; düğmeyi doğrudan tetikle
-  if ((await etiket()) !== hedef) await sayfa.$eval('#btn-arkaplan', (b) => b.click())
+  if ((await etiket()) !== hedef) {
+    // Çizim açıksa zemin değişince yeniden çizilir (bitince biten sayacı artar)
+    const once = await sayfa.evaluate(() => window.__dwg.biten)
+    const acik = await sayfa.evaluate(() => window.__dwg.gorunum.dosyaAcik)
+    await sayfa.$eval('#btn-arkaplan', (b) => b.click())
+    if (acik) await sayfa.waitForFunction((n) => window.__dwg.biten > n, once, { timeout: 120000 })
+  }
   await sayfa.waitForFunction((h) => document.getElementById('arkaplan-etiket').textContent.trim() === h, hedef)
   await sayfa.waitForTimeout(700)
 }

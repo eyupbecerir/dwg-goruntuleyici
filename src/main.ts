@@ -186,6 +186,7 @@ async function sekmeyiGeriYukle(s: Sekme): Promise<void> {
  */
 async function gorunumuGeriKoy(k: GorunumKutusu): Promise<void> {
   const gen = k.maxX - k.minX
+  await gorunum.isiBitince()
   for (let i = 0; i < 4; i++) {
     await new Promise((r) => setTimeout(r, i === 0 ? 300 : 250))
     gorunum.gorunumKoy(k)
@@ -327,11 +328,16 @@ function baglantilar(): void {
   $('btn-yakin').addEventListener('click', () => gorunum.yaklastir(1.5))
   $('btn-uzak').addEventListener('click', () => gorunum.yaklastir(1 / 1.5))
   $('btn-olc').addEventListener('click', () => (olcum.acikMi ? olcum.kapat() : olcum.ac()))
-  $('btn-arkaplan').addEventListener('click', () => {
+  $('btn-arkaplan').addEventListener('click', async () => {
+    if (mesgul) return
     tema = tema === 'koyu' ? 'acik' : 'koyu'
     depoYaz('tema', tema)
     temaEtiketi()
     gorunum.temaUygula(tema)
+    // Kütüphane bazı yazı renklerini (ByBlock) çizim anındaki zemine göre sabitliyor;
+    // zemin değişince açık çizim aynı görünümde yeniden çizilir.
+    const s = sekmeler.etkin
+    if (s && gorunum.dosyaAcik) await cizimAc(s.ad, s.veri.slice(0), null, { tur: 'gecis', id: s.id })
   })
 }
 

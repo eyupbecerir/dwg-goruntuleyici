@@ -133,9 +133,27 @@ export class Gorunum {
     return this.gorunum.canvas as HTMLCanvasElement
   }
 
+  /**
+   * Kütüphane dosya açarken zemini çizimin kendi ayarına (MODELBKCOLOR, genelde siyah) çeker ve
+   * bazı yazı renklerini (ByBlock) o zemine göre kalıcı boyar; tema sonradan uygulanınca açık
+   * zeminde beyaz yazı kalıyordu. Görünümün zemin uygulaması her zaman seçili temaya bağlanır.
+   */
+  private zeminKilitle(): void {
+    try {
+      const v = this.gorunum
+      if (!v || v.__zeminKilitli) return
+      const asil = v.applyCanvasBackground.bind(v)
+      v.applyCanvasBackground = () => asil(RENK[this.tema])
+      v.__zeminKilitli = true
+    } catch {
+      // yoksay: tema açılıştan sonra yine uygulanır
+    }
+  }
+
   /** Dosyayı açar. Başarısızlıkta false döner ya da hata fırlatır. */
   async ac(ad: string, veri: ArrayBuffer): Promise<boolean> {
     let ok = false
+    this.zeminKilitle()
     try {
       ok = await this.yonetici.openDocument(ad, veri, {
         mode: AcEdOpenMode.Read,
@@ -237,6 +255,26 @@ export class Gorunum {
     } catch {
       return null
     }
+  }
+
+  /**
+   * Kütüphane açılıştaki sığdırmayı nesneler işlenip bitince (300 ms aralıkla yoklayarak) yapar.
+   * Büyük çizimde bu saniyeler sürebilir; görünüm ondan sonra geri konmalı yoksa üstüne yazılır.
+   */
+  async isiBitince(enFazlaMs = 60000): Promise<void> {
+    const bas = Date.now()
+    while (Date.now() - bas < enFazlaMs) {
+      let isliyor = false
+      try {
+        isliyor = !!this.gorunum.isProcessingEntities
+      } catch {
+        // yoksay
+      }
+      if (!isliyor) break
+      await new Promise((r) => setTimeout(r, 100))
+    }
+    // Kütüphanenin bekleyen sığdırma yoklaması (300 ms) çalışsın
+    await new Promise((r) => setTimeout(r, 450))
   }
 
   /** Saklanan görünümü geri yükler; hata olursa yoksayılır (sığdırılmış görünüm kalır) */

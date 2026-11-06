@@ -46,6 +46,38 @@ const YAMALAR: Record<string, Yama[]> = {
         var cp = Number.parseInt(uzun || kisa, 16);`
     }
   ],
+  '@mlightcad/three-renderer/dist/index.js': [
+    {
+      // Yazı içi `\C0` (ByBlock) rengi zeminden bağımsız sabit beyaz veriliyordu:
+      // açık zeminde beyaz üstüne beyaz, görünmez (VARIOCLIC, CEPHE D gibi
+      // başlıklar). AutoCAD model alanında ByBlock'u ACI 7 gibi gösterir, yani
+      // zemine göre siyah/beyaz.
+      ad: 'yazı içi ByBlock rengi zemine göre',
+      eski: 'l = r.isByBlock ? s : 16777215;',
+      yeni: 'l = r.isByBlock ? s : Ce(t);'
+    },
+    {
+      // Malzeme önbelleği anahtarı simgesel renk ("ByBlock"); oysa ByBlock'un
+      // gerçek rengi zemine göre değişiyor. Koyu zeminde oluşan beyaz malzeme
+      // açık zeminde yeniden açılan çizimde de kullanılıyordu. Anahtara zemin eklenir.
+      ad: 'ByBlock malzeme önbelleği zemine göre',
+      eski: `    const t = e.isColorByLayer, i = e.color.toString();
+    return t == null ? i : \`\${i}_\${t ? "bylayer" : "explicit"}\`;`,
+      yeni: `    const t = e.isColorByLayer, i = e.color.toString() + (e.color.isByBlock ? "_zemin" + this.options.currentBackgroundColor : "");
+    return t == null ? i : \`\${i}_\${t ? "bylayer" : "explicit"}\`;`
+    }
+  ],
+  '@mlightcad/graphic-interface/lib/AcGiContext.js': [
+    {
+      // Çözülemeyen ByLayer/ByBlock rengi (ör. blok içi ByBlock ölçü ve yazılar)
+      // zeminden bağımsız beyaza düşüyordu; açık zeminde görünmüyordu.
+      ad: 'ByBlock/ByLayer yedek rengi zemine göre',
+      eski: `            backgroundIsDark: !acgiIsLightBackground(backgroundColor),
+            fallbackRgb: 0xffffff`,
+      yeni: `            backgroundIsDark: !acgiIsLightBackground(backgroundColor),
+            fallbackRgb: acgiIsLightBackground(backgroundColor) ? ACGI_LIGHT_THEME_FOREGROUND : ACGI_DARK_THEME_FOREGROUND`
+    }
+  ],
   '@mlightcad/data-model/lib/entity/AcDbMLeader.js': [
     {
       // Çoklu kılavuzun yatay kırılma çizgisi (dogleg) "içerik başlangıç
