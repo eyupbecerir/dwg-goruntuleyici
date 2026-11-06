@@ -490,13 +490,14 @@ kontrol('"Çeyrek" etiketi', (await etiketler()).includes('Çeyrek'))
 
 // merkez: daire merkezi, çemberin üzerinden geçince "elde edilir" (kütüphane davranışı)
 await yenidenOlc()
-const pe1 = await ekr(300, -40)
+// Sekme şeridi (44px) sahneyi kısalttığı için noktalar kenara yapışmasın diye (300,-30) ve (300,130) kullanılır
+const pe1 = await ekr(300, -30)
 await sayfa.touchscreen.tap(pe1.x, pe1.y)
 await sayfa.waitForTimeout(150)
-const pe2 = await ekr(300, 150)
+const pe2 = await ekr(300, 130)
 await sayfa.touchscreen.tap(pe2.x, pe2.y)
 await sayfa.waitForTimeout(250)
-const bB = await ekr(300, 150)
+const bB = await ekr(300, 130)
 const rim = await ekr(300 + 30, 50)
 const mer = await ekr(300, 50)
 await suruklemeBasla(bB, [{ x: rim.x, y: rim.y }, { x: mer.x + 8, y: mer.y + 6 }])
@@ -535,6 +536,171 @@ const yz = await cizimGorunene()
 kontrol('yazi.dxf açıldı ve çizim boş değil', yz.parlak + yz.renkli > 150, `parlak=${yz.parlak} renkli=${yz.renkli}`)
 await sayfa.waitForTimeout(800)
 await adliFoto('yazi-regresyon.png')
+
+// ================= 7a) Sekmeler (bellekte, en fazla 5)
+console.log('\n== 7a) Sekmeler')
+await sayfa.reload()
+await sayfa.waitForSelector('#btn-ac-buyuk')
+const sekmeDurum = () => sayfa.evaluate(() => window.__dwg.sekmeler)
+const bekleEtkin = (ad) =>
+  sayfa.waitForFunction((a) => window.__dwg.sekmeler.etkin === a, ad, { timeout: 120000 })
+const sekmeGec = async (ad) => {
+  const once = await sayfa.evaluate(() => window.__dwg.biten)
+  await sayfa.click(`#sekmeler .sekme[title="${ad}"]`)
+  await sayfa.waitForFunction((n) => window.__dwg.biten > n, once, { timeout: 120000 })
+  await sayfa.waitForTimeout(700)
+}
+const gorunenGen = () =>
+  sayfa.evaluate(() => {
+    const g = window.__dwg.gorunum
+    const r = g.tuval.getBoundingClientRect()
+    return Math.abs(g.ekranDunya({ x: r.width, y: 0 }).x - g.ekranDunya({ x: 0, y: 0 }).x)
+  })
+kontrol('dosya yokken sekme şeridi gizli', await sayfa.locator('#sekmeler').isHidden())
+
+// (a) iki farklı dosya: 2 sekme, ikincisi etkin
+await acDosyadan(join(ORNEK, 'example_2013.dxf'))
+await acDosyadan(join(ORNEK, 'turkce_metin.dxf'))
+let sd = await sekmeDurum()
+kontrol('(a) 2 farklı dosya: 2 sekme, ikincisi etkin', sd.adlar.length === 2 && sd.etkin === 'turkce_metin.dxf', JSON.stringify(sd))
+kontrol('(a) sekme şeridi görünüyor, 2 sekme düğmesi var', (await sayfa.locator('#sekmeler').isVisible()) && (await sayfa.locator('#sekmeler .sekme').count()) === 2)
+kontrol(
+  '(a) etkin sekme aria-selected="true" ve .etkin',
+  (await sayfa.getAttribute('#sekmeler .sekme[title="turkce_metin.dxf"]', 'aria-selected')) === 'true' &&
+    (await sayfa.getAttribute('#sekmeler .sekme[title="example_2013.dxf"]', 'aria-selected')) === 'false' &&
+    (await sayfa.locator('#sekmeler .sekme.etkin').count()) === 1
+)
+const seritBoy = await sayfa.locator('#sekmeler').boundingBox()
+const kapatBoy = await sayfa.locator('#sekmeler .sekme-kapat').first().boundingBox()
+kontrol('(a) şerit yüksekliği 40-44px, ✕ en az 40px', seritBoy.height >= 40 && seritBoy.height <= 44 && kapatBoy.width >= 40 && kapatBoy.height >= 40, `${seritBoy.height} / ${kapatBoy.width}x${kapatBoy.height}`)
+kontrol('(a) "+" düğmesi aria-label "Dosya aç"', (await sayfa.getAttribute('#btn-sekme-ekle', 'aria-label')) === 'Dosya aç')
+kontrol('(a) ✕ düğmesi aria-label', (await sayfa.getAttribute('#sekmeler .sekme-kapat >> nth=0', 'aria-label')) === 'example_2013.dxf sekmesini kapat')
+
+// (b) ilk sekmeye geç
+await cizimGorunene()
+await sekmeGec('example_2013.dxf')
+sd = await sekmeDurum()
+kontrol('(b) ilk sekmeye dokunma: etkin sekme değişti', sd.etkin === 'example_2013.dxf', JSON.stringify(sd))
+kontrol('(b) üst çubukta dosya adı değişti', (await sayfa.textContent('#dosya-adi')).trim() === 'example_2013.dxf')
+let sk = await cizimGorunene()
+kontrol('(b) geçişten sonra çizim boş değil', sk.parlak + sk.renkli > 150 || (sk.koyu > 150 && sk.koyu < sk.toplam * 0.9), JSON.stringify(sk))
+await foto('sekme-gecis')
+{
+  const once = await sayfa.evaluate(() => window.__dwg.biten)
+  await sayfa.click('#sekmeler .sekme.etkin')
+  await sayfa.waitForTimeout(400)
+  kontrol('etkin sekmeye dokunmak hiçbir şey yapmaz', (await sayfa.evaluate(() => window.__dwg.biten)) === once && (await sayfa.locator('#yukleniyor').isHidden()))
+}
+
+// (c) yakınlaştır, başka sekmeye geç, geri dön: görünüm korunur
+const wA = await gorunenGen()
+await sayfa.click('#btn-yakin')
+await sayfa.waitForTimeout(500)
+const wB = await gorunenGen()
+await sekmeGec('turkce_metin.dxf')
+await sekmeGec('example_2013.dxf')
+const wC = await gorunenGen()
+kontrol('(c) "+" ile yakınlaştırma sekme dönüşünde korunuyor', wB < wA * 0.8 && Math.abs(wC - wB) / wB < 0.05, `sığdırılmış=${wA.toFixed(1)} yakın=${wB.toFixed(1)} dönüş=${wC.toFixed(1)}`)
+
+// ölçü aleti sekme geçişinde kapanır
+await sayfa.click('#btn-olc')
+kontrol('ölçü aleti açıldı', (await sayfa.getAttribute('#btn-olc', 'aria-pressed')) === 'true')
+await sekmeGec('turkce_metin.dxf')
+kontrol('sekme geçişinde ölçü aleti kapandı', (await sayfa.getAttribute('#btn-olc', 'aria-pressed')) === 'false' && (await sayfa.locator('#olcum-panel').isHidden()))
+
+// (d) 6 farklı dosya: sekme sayısı 5
+await acDosyadan(join(ORNEK, 'example_2000.dwg'))
+await acDosyadan(join(ORNEK, 'example_2004.dwg'))
+await acDosyadan(join(ORNEK, 'example_2018.dwg'))
+sd = await sekmeDurum()
+kontrol('5 sekmeye kadar sınır yok', sd.adlar.length === 5, sd.adlar.join(', '))
+await acDosyadan(join(VERI, 'yakalama.dxf'))
+sd = await sekmeDurum()
+kontrol('(d) 6 farklı dosya: sekme sayısı 5', sd.adlar.length === 5 && sd.etkin === 'yakalama.dxf', sd.adlar.join(', '))
+kontrol('(d) en uzun süredir bakılmayan sekme düştü, etkin korundu', !sd.adlar.includes('example_2013.dxf') && sd.adlar.includes('turkce_metin.dxf'), sd.adlar.join(', '))
+// aynı dosya tekrar açılırsa yeni sekme açılmaz
+await acDosyadan(join(VERI, 'yakalama.dxf'))
+sd = await sekmeDurum()
+kontrol('aynı ad+boyutlu dosya tekrar açılınca yeni sekme açılmaz', sd.adlar.length === 5 && sd.adlar.filter((a) => a === 'yakalama.dxf').length === 1, sd.adlar.join(', '))
+await cizimGorunene()
+await foto('sekmeler-5')
+
+// (g) Son açılanlar'dan zaten açık olan dosya: yeni sekme yok, o sekmeye geçilir
+await sayfa.click('#btn-son')
+await sayfa.waitForSelector('#son-liste li')
+adlar = await sayfa.$$eval('#son-liste .son-oge .ad', (e) => e.map((x) => x.textContent))
+const gi = adlar.findIndex((a) => a === 'example_2004.dwg')
+kontrol('(g) example_2004.dwg Son açılanlar listesinde', gi >= 0, adlar.join(', '))
+{
+  const once = await sayfa.evaluate(() => window.__dwg.biten)
+  await sayfa.locator('#son-liste .son-oge').nth(gi).click()
+  await sayfa.waitForFunction((n) => window.__dwg.biten > n, once, { timeout: 120000 })
+  await sayfa.waitForTimeout(500)
+}
+sd = await sekmeDurum()
+kontrol('(g) Son açılanlar: yeni sekme açılmadı, açık sekmeye geçildi', sd.adlar.length === 5 && sd.etkin === 'example_2004.dwg' && (await sayfa.locator('#baslangic').isHidden()), JSON.stringify(sd))
+
+// (e) etkin olmayan sekmeyi ✕ ile kapat
+await sayfa.click('#sekmeler .sekme-kapat[aria-label="turkce_metin.dxf sekmesini kapat"]')
+sd = await sekmeDurum()
+kontrol('(e) etkin olmayan sekme ✕ ile kapandı: sayı azaldı, etkin değişmedi', sd.adlar.length === 4 && !sd.adlar.includes('turkce_metin.dxf') && sd.etkin === 'example_2004.dwg', JSON.stringify(sd))
+// etkin sekme kapanınca soldaki komşuya geçilir (liste: 2000, 2004, 2018, yakalama)
+await sayfa.click('#sekmeler .sekme-kapat[aria-label="example_2004.dwg sekmesini kapat"]')
+await bekleEtkin('example_2000.dwg')
+await sayfa.waitForFunction(() => document.getElementById('yukleniyor').hidden, null, { timeout: 120000 })
+sd = await sekmeDurum()
+kontrol('etkin sekme kapanınca soldaki komşuya geçildi', sd.adlar.length === 3 && sd.etkin === 'example_2000.dwg' && (await sayfa.textContent('#dosya-adi')).trim() === 'example_2000.dwg', JSON.stringify(sd))
+// en soldaki etkin kapanırsa sağdakine geçilir
+await sayfa.click('#sekmeler .sekme-kapat[aria-label="example_2000.dwg sekmesini kapat"]')
+await bekleEtkin('example_2018.dwg')
+await sayfa.waitForFunction(() => document.getElementById('yukleniyor').hidden, null, { timeout: 120000 })
+sd = await sekmeDurum()
+kontrol('en soldaki etkin sekme kapanınca sağdakine geçildi', sd.adlar.length === 2 && sd.etkin === 'example_2018.dwg', JSON.stringify(sd))
+sk = await cizimGorunene()
+kontrol('komşuya geçişten sonra çizim boş değil', sk.parlak + sk.renkli > 150, JSON.stringify(sk))
+
+// (f) hepsini kapat: dosya yok durumu
+await sayfa.click('#sekmeler .sekme-kapat[aria-label="example_2018.dwg sekmesini kapat"]')
+await bekleEtkin('yakalama.dxf')
+await sayfa.waitForFunction(() => document.getElementById('yukleniyor').hidden, null, { timeout: 120000 })
+await sayfa.click('#sekmeler .sekme-kapat[aria-label="yakalama.dxf sekmesini kapat"]')
+await sayfa.waitForTimeout(400)
+sd = await sekmeDurum()
+kontrol('(f) hepsi kapandı: sekme kalmadı', sd.adlar.length === 0 && sd.etkin === null, JSON.stringify(sd))
+kontrol('(f) dosya-yok durumu, şerit gizli', (await sayfa.evaluate(() => document.getElementById('app').classList.contains('dosya-yok'))) && (await sayfa.locator('#sekmeler').isHidden()))
+kontrol('(f) başlangıç ekranı açık, "Çizime dön" gizli', (await sayfa.locator('#baslangic').isVisible()) && (await sayfa.locator('#btn-kapat-baslangic').isHidden()))
+kontrol('(f) araçlar devre dışı, görüntüleyici dosyaAcik=false', (await sayfa.$$eval('#btn-sigdir, #btn-yakin, #btn-uzak, #btn-olc', (b) => b.every((x) => x.disabled))) && (await sayfa.evaluate(() => window.__dwg.gorunum.dosyaAcik)) === false)
+await foto('sekmeler-hepsi-kapali')
+// Son açılanlar listesi tam kalsın: sonraki bölüm örnek DWG'leri bekliyor
+await acDosyadan(join(ORNEK, 'example_2000.dwg'))
+sd = await sekmeDurum()
+kontrol('kapatma sonrası yeni dosya tek sekmeyle açılıyor', sd.adlar.length === 1 && sd.etkin === 'example_2000.dwg', JSON.stringify(sd))
+
+// Açılamayan dosya: yeni sekme eklenmez, önceki sekme açık kalır
+await acDosyadan({ name: 'bozuk2.dwg', mimeType: 'application/octet-stream', buffer: Buffer.from('AC1032 bu bir cizim degil') })
+await sayfa.waitForSelector('#hata', { state: 'visible', timeout: 20000 })
+sd = await sekmeDurum()
+kontrol('açılamayan dosya sekme eklemedi, önceki sekme etkin kaldı', sd.adlar.length === 1 && sd.etkin === 'example_2000.dwg', JSON.stringify(sd))
+await sayfa.click('#btn-hata-tamam')
+sk = await cizimGorunene()
+kontrol('açılamayan dosyadan sonra önceki çizim yeniden görünüyor', sk.parlak + sk.renkli > 150 && (await sayfa.evaluate(() => window.__dwg.gorunum.dosyaAcik)), JSON.stringify(sk))
+
+// 390px telefon genişliği: yatay taşma yok
+await sayfa.setViewportSize({ width: 390, height: 844 })
+await acDosyadan(join(ORNEK, 'example_2018.dwg'))
+await acDosyadan(join(ORNEK, 'turkce_metin.dxf'))
+await acDosyadan(join(ORNEK, 'example_2013.dxf'))
+await sayfa.waitForTimeout(500)
+kontrol('390px: sayfada yatay taşma yok', !(await sayfa.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)))
+kontrol('390px: sekme şeridi kaydırılabilir, etkin sekme görünür', await sayfa.evaluate(() => {
+  const l = document.getElementById('sekme-liste')
+  const e = l.querySelector('.sekme-oge.etkin').getBoundingClientRect()
+  const r = l.getBoundingClientRect()
+  return e.left >= r.left - 1 && e.right <= r.right + 1
+}))
+await sayfa.setViewportSize({ width: 1280, height: 800 })
+await sayfa.waitForTimeout(500)
+await acDosyadan(join(ORNEK, 'example_2000.dwg'))
 
 // ================= 7) OFFLINE
 console.log('\n== 7) OFFLINE (ag kapali)')

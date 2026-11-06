@@ -14,6 +14,7 @@ import {
 } from '@mlightcad/data-model'
 import { AcDbLibreDwgConverter } from '@mlightcad/libredwg-converter'
 import { FontManager } from '@mlightcad/mtext-renderer'
+import type { GorunumKutusu } from './tabs'
 
 /**
  * Çizimdeki yazı tipi bulunamazsa kullanılacak yedekler. Kütüphanenin varsayılanı
@@ -199,6 +200,11 @@ export class Gorunum {
     return this.acik
   }
 
+  /** Açık çizim yok say (son sekme kapandı). Kütüphanede eski çizim kalabilir ama arayüz onu göstermez. */
+  kapat(): void {
+    this.acik = false
+  }
+
   temaUygula(t: Tema): void {
     this.tema = t
     try {
@@ -220,6 +226,26 @@ export class Gorunum {
       { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y) },
       { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y) }
     )
+  }
+
+  /** Görünen dünya kutusu (sekme değiştirirken saklanır); okunamazsa null */
+  gorunumAl(): GorunumKutusu | null {
+    try {
+      const k = this.gorunenKutu()
+      const sonlu = [k.min.x, k.min.y, k.max.x, k.max.y].every((n) => Number.isFinite(n))
+      return sonlu ? { minX: k.min.x, minY: k.min.y, maxX: k.max.x, maxY: k.max.y } : null
+    } catch {
+      return null
+    }
+  }
+
+  /** Saklanan görünümü geri yükler; hata olursa yoksayılır (sığdırılmış görünüm kalır) */
+  gorunumKoy(k: GorunumKutusu): void {
+    try {
+      this.gorunum.zoomTo(new AcGeBox2d({ x: k.minX, y: k.minY }, { x: k.maxX, y: k.maxY }), 1)
+    } catch {
+      // yoksay
+    }
   }
 
   yaklastir(carpan: number): void {

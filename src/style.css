@@ -144,6 +144,42 @@ h2 {
 .son-sil:active { background: rgba(255, 107, 107, 0.14); color: var(--tehlike); }
 #son-bos { text-align: left; margin: 0 4px; }
 
+/* Sekmeler: üst çubuğun altında yatay şerit */
+#sekmeler {
+  flex: 0 0 auto; display: flex; align-items: stretch; height: 44px;
+  padding-left: max(4px, env(safe-area-inset-left)); padding-right: max(4px, env(safe-area-inset-right));
+  background: var(--panel); border-bottom: 1px solid var(--sinir); position: relative; z-index: 15;
+}
+#sekmeler[hidden] { display: none; }
+#sekme-liste {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: stretch; gap: 2px;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none;
+  touch-action: pan-x; overscroll-behavior-x: contain;
+}
+#sekme-liste::-webkit-scrollbar { display: none; }
+.sekme-oge {
+  flex: 0 0 auto; display: flex; align-items: center; height: 44px; border-radius: 10px 10px 0 0;
+  color: var(--metin-soft); transition: background-color 120ms ease-out, color 120ms ease-out;
+}
+.sekme-oge.etkin { background: var(--vurgu-zemin); color: var(--metin); box-shadow: inset 0 -3px 0 var(--vurgu); }
+.sekme {
+  display: flex; align-items: center; gap: 8px; height: 44px; min-width: 0; padding: 0 2px 0 10px;
+  background: transparent; border: 0; color: inherit; font: inherit; font-size: 14px; font-weight: 500;
+  cursor: pointer; touch-action: manipulation;
+}
+.sekme .rozet { width: 30px; height: 20px; border-radius: 6px; font-size: 9px; letter-spacing: 0.02em; }
+.sekme-ad { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sekme-kapat, #btn-sekme-ekle {
+  flex: 0 0 auto; width: 40px; height: 40px; border: 0; border-radius: 10px; background: transparent;
+  color: var(--metin-sonuk); cursor: pointer; touch-action: manipulation; display: grid; place-items: center;
+  transition: background-color 120ms ease-out, color 120ms ease-out;
+}
+.sekme-kapat { margin-right: 2px; }
+.sekme-kapat svg.ikon { width: 16px; height: 16px; }
+.sekme-kapat:active, #btn-sekme-ekle:active { background: var(--panel-2); color: var(--metin); }
+#btn-sekme-ekle { align-self: center; margin-left: 2px; color: var(--metin-soft); }
+.sekme:focus-visible, .sekme-kapat:focus-visible, #btn-sekme-ekle:focus-visible { outline: 2px solid var(--vurgu); outline-offset: -2px; }
+
 .kaplama {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
   background: rgba(10, 13, 17, 0.86); z-index: 20;
